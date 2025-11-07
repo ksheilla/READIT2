@@ -5,6 +5,7 @@ import RegisterPage from './pages/RegisterPage';
 import HomePage from './pages/HomePage';
 import ReflectionPage from './pages/ReflectionPage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import RecommendationsPage from './pages/RecommendationsPage';
 
 function App() {
   const isAuthenticated = () => {
@@ -28,6 +29,13 @@ function App() {
           path="/reflect" 
           element={
             isAuthenticated() ? <ReflectionPage /> : <Navigate to="/login" />
+          } 
+        />
+        
+        <Route 
+          path="/recommendations" 
+          element={
+            isAuthenticated() ? <RecommendationsPage /> : <Navigate to="/login" />
           } 
         />
         
