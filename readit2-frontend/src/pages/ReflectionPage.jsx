@@ -1,8 +1,3 @@
-// ============================================================================
-// Animated ReflectionPage.jsx with Emoji Reactions & Live Preview
-// Replace your src/pages/ReflectionPage.jsx with this
-// ============================================================================
-
 import React, { useState } from 'react';
 import { 
   Container, 
@@ -35,8 +30,11 @@ import {
   AutoStories,
   EmojiEmotions,
   Star,
-  Favorite
+  Favorite,
+  Mic
 } from '@mui/icons-material';
+import AudioRecorder from '../components/AudioRecorder';
+import AudioPlayer from '../components/AudioPlayer';
 
 function ReflectionPage() {
   const [bookTitle, setBookTitle] = useState('');
@@ -46,6 +44,8 @@ function ReflectionPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [selectedMood, setSelectedMood] = useState('');
   const [activeStep, setActiveStep] = useState(0);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const [audioUrl, setAudioUrl] = useState(null);
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('readit2_user'));
 
@@ -58,7 +58,12 @@ function ReflectionPage() {
     { emoji: '😍', label: 'Loved it', color: '#F38181' },
   ];
 
-  const steps = ['📖 Choose Book', '✍️ Write Reflection', '👀 Preview & Post'];
+  const steps = ['📖 Choose Book', '✍️ Write Reflection', '🎤 Add Audio (Optional)', '👀 Preview & Post'];
+
+  const handleAudioRecorded = (blob, url) => {
+    setAudioBlob(blob);
+    setAudioUrl(url);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -71,21 +76,39 @@ function ReflectionPage() {
       return;
     }
     
-    if (!reflectionText.trim()) {
-      setError('Reflection text is required');
+    if (!reflectionText.trim() && !audioBlob) {
+      setError('Please provide either a written reflection or audio recording');
       setLoading(false);
       return;
     }
     
     try {
+      let uploadedAudioUrl = null;
+      
+      // Upload audio if present
+      if (audioBlob) {
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'reflection.webm');
+        
+        const uploadResponse = await api.post('/upload-audio', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        
+        uploadedAudioUrl = uploadResponse.data.audioUrl;
+      }
+      
+      // Post reflection
       await api.post('/reflections', {
         user_id: user.id,
         book_title: bookTitle,
-        reflection_text: reflectionText + (selectedMood ? ` ${selectedMood}` : '')
+        reflection_text: reflectionText + (selectedMood ? ` ${selectedMood}` : ''),
+        audio_url: uploadedAudioUrl
       });
       
       // Success animation
-      setActiveStep(3);
+      setActiveStep(4);
       
       setTimeout(() => {
         navigate('/home');
@@ -104,9 +127,9 @@ function ReflectionPage() {
       setError('Please enter a book title first!');
       return;
     }
-    if (activeStep === 1 && !reflectionText.trim()) {
-      setError('Please write your reflection first!');
-      return;
+    if (activeStep === 1 && !reflectionText.trim() && activeStep < 2) {
+      // Allow skipping to audio if no text
+      setError('');
     }
     setError('');
     setActiveStep((prev) => prev + 1);
@@ -183,7 +206,7 @@ function ReflectionPage() {
       <Container maxWidth="md">
         {/* Success Animation */}
         <AnimatePresence>
-          {activeStep === 3 && (
+          {activeStep === 4 && (
             <motion.div
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -287,7 +310,8 @@ function ReflectionPage() {
                       sx={{
                         '& .MuiStepLabel-label': {
                           color: 'white !important',
-                          fontWeight: activeStep === index ? 'bold' : 'normal'
+                          fontWeight: activeStep === index ? 'bold' : 'normal',
+                          fontSize: '0.75rem'
                         },
                         '& .MuiStepIcon-root': {
                           color: 'rgba(255,255,255,0.5)',
@@ -401,14 +425,14 @@ function ReflectionPage() {
                               📖 {bookTitle}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                              Share your thoughts, favorite moments, or what you learned!
+                              Share your thoughts, favorite moments, or what you learned! (You can also add audio in the next step)
                             </Typography>
                           </CardContent>
                         </Card>
 
                         <TextField
                           fullWidth
-                          label="Your Reflection"
+                          label="Your Reflection (Optional if adding audio)"
                           multiline
                           rows={8}
                           value={reflectionText}
@@ -481,10 +505,42 @@ function ReflectionPage() {
                     </motion.div>
                   )}
 
-                  {/* Step 3: Preview */}
+                  {/* Step 3: Audio Recording */}
                   {activeStep === 2 && (
                     <motion.div
                       key="step3"
+                      initial={{ opacity: 0, x: 50 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -50 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <Box sx={{ mb: 4 }}>
+                        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Mic color="primary" /> Add Your Voice (Optional)
+                        </Typography>
+
+                        <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
+                          💡 Recording audio is optional but makes your reflection more personal! You can record your thoughts about the book instead of (or in addition to) writing them.
+                        </Alert>
+
+                        <AudioRecorder 
+                          onAudioRecorded={handleAudioRecorded}
+                          existingAudioUrl={audioUrl}
+                        />
+
+                        {!audioUrl && !reflectionText.trim() && (
+                          <Alert severity="warning" sx={{ mt: 2, borderRadius: 2 }}>
+                            ⚠️ Please either write a reflection or record an audio message before continuing.
+                          </Alert>
+                        )}
+                      </Box>
+                    </motion.div>
+                  )}
+
+                  {/* Step 4: Preview */}
+                  {activeStep === 3 && (
+                    <motion.div
+                      key="step4"
                       initial={{ opacity: 0, x: 50 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -50 }}
@@ -533,9 +589,20 @@ function ReflectionPage() {
                               
                               <Divider sx={{ my: 2 }} />
                               
-                              <Typography variant="body1" sx={{ lineHeight: 1.8, mb: 2 }}>
-                                {reflectionText}
-                              </Typography>
+                              {reflectionText && (
+                                <Typography variant="body1" sx={{ lineHeight: 1.8, mb: 2 }}>
+                                  {reflectionText}
+                                </Typography>
+                              )}
+
+                              {audioUrl && (
+                                <Box sx={{ mt: 2 }}>
+                                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                                    🎤 Audio Reflection:
+                                  </Typography>
+                                  <AudioPlayer audioUrl={audioUrl} compact={false} />
+                                </Box>
+                              )}
 
                               {selectedMood && (
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
@@ -551,6 +618,7 @@ function ReflectionPage() {
                                   <Chip icon={<Favorite />} label="0 Likes" size="small" />
                                 </Tooltip>
                                 <Chip label="Just now" size="small" />
+                                {audioUrl && <Chip icon={<Mic />} label="Has Audio" size="small" color="primary" />}
                               </Box>
                             </CardContent>
                           </Card>
@@ -566,7 +634,7 @@ function ReflectionPage() {
 
                 {/* Navigation Buttons */}
                 <Box sx={{ display: 'flex', gap: 2, mt: 4 }}>
-                  {activeStep > 0 && activeStep < 3 && (
+                  {activeStep > 0 && activeStep < 4 && (
                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                       <Button
                         variant="outlined"
@@ -579,7 +647,7 @@ function ReflectionPage() {
                     </motion.div>
                   )}
                   
-                  {activeStep < 2 ? (
+                  {activeStep < 3 ? (
                     <motion.div 
                       whileHover={{ scale: 1.05 }} 
                       whileTap={{ scale: 0.95 }}
@@ -590,16 +658,17 @@ function ReflectionPage() {
                         onClick={handleNext}
                         size="large"
                         fullWidth
+                        disabled={activeStep === 2 && !audioUrl && !reflectionText.trim()}
                         sx={{
                           background: 'linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%)',
                           fontWeight: 'bold',
                           fontSize: '1.1rem'
                         }}
                       >
-                        Next →
+                        {activeStep === 2 ? 'Continue to Preview →' : 'Next →'}
                       </Button>
                     </motion.div>
-                  ) : activeStep === 2 && (
+                  ) : activeStep === 3 && (
                     <motion.div 
                       whileHover={{ scale: 1.05 }} 
                       whileTap={{ scale: 0.95 }}

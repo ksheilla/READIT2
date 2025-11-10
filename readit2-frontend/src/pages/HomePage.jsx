@@ -22,7 +22,9 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
+import Mic from '@mui/icons-material/Mic';
 import BadgeDisplay from '../components/BadgeDisplay';
+import AudioPlayer from '../components/AudioPlayer';
 
 // Popular books data
 const POPULAR_BOOKS = [
@@ -536,11 +538,28 @@ function HomePage() {
                                 }}
                               />
                             )}
+                            {reflection.audio_url && (
+                              <Chip 
+                                icon={<Mic />}
+                                label="Audio" 
+                                size="small" 
+                                color="primary"
+                                sx={{ ml: 1 }}
+                              />
+                            )}
                           </Box>
                           
-                          <Typography variant="body1" sx={{ mb: 2, lineHeight: 1.6 }}>
-                            {reflection.reflection_text}
-                          </Typography>
+                          {reflection.reflection_text && (
+                            <Typography variant="body1" sx={{ mb: 2, lineHeight: 1.6 }}>
+                              {reflection.reflection_text}
+                            </Typography>
+                          )}
+
+                          {reflection.audio_url && (
+                            <Box sx={{ mt: 2, mb: 2 }}>
+                              <AudioPlayer audioUrl={reflection.audio_url} compact={true} />
+                            </Box>
+                          )}
                           
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                             <Tooltip title="Like this reflection">

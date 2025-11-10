@@ -5,22 +5,83 @@ const helmet = require('helmet');
 const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 const { v4: uuidv4 } = require('uuid');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 dotenv.config();
 
 const app = express();
 
-app.use(helmet());
-app.use(cors({
-  origin: 'http://localhost:3000',
-  credentials: true
+// IMPORTANT: Configure Helmet to allow audio files
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false
 }));
+
+// IMPORTANT: Configure CORS to allow audio file access
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Range'],
+  exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length']
+}));
+
 app.use(express.json());
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads', 'audio');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// IMPORTANT: Serve static audio files with proper headers
+app.use('/uploads/audio', (req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Range');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+  res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static(uploadsDir, {
+  setHeaders: (res, path) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+}));
+
+// Configure multer for audio file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB max
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/wav', 'audio/ogg'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only audio files are allowed.'));
+    }
+  }
+});
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 app.get('/', (req, res) => {
-  res.send('READit2 API is running successfully!');
+  res.send('READit2 API is running successfully with audio support! 🎤');
 });
 
 // User registration
@@ -127,6 +188,32 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// Upload audio file
+app.post('/api/upload-audio', upload.single('audio'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        error: 'No audio file provided' 
+      });
+    }
+    
+    const audioUrl = `http://localhost:${process.env.PORT || 5000}/uploads/audio/${req.file.filename}`;
+    
+    console.log('Audio file uploaded:', req.file.filename);
+    res.json({ 
+      message: 'Audio uploaded successfully',
+      audioUrl: audioUrl,
+      filename: req.file.filename
+    });
+    
+  } catch (err) {
+    console.error('Error uploading audio:', err);
+    res.status(500).json({ 
+      error: 'Failed to upload audio. Please try again.' 
+    });
+  }
+});
+
 // Get all reflections
 app.get('/api/reflections', async (req, res) => {
   try {
@@ -155,13 +242,19 @@ app.get('/api/reflections', async (req, res) => {
   }
 });
 
-// Create a new reflection
+// Create a new reflection (with optional audio)
 app.post('/api/reflections', async (req, res) => {
-  const { user_id, book_title, reflection_text } = req.body;
+  const { user_id, book_title, reflection_text, audio_url } = req.body;
   
-  if (!user_id || !book_title || !reflection_text) {
+  if (!user_id || !book_title) {
     return res.status(400).json({ 
-      error: 'All fields are required: user_id, book_title, and reflection_text' 
+      error: 'user_id and book_title are required' 
+    });
+  }
+  
+  if (!reflection_text && !audio_url) {
+    return res.status(400).json({ 
+      error: 'Either reflection_text or audio_url is required' 
     });
   }
   
@@ -172,7 +265,8 @@ app.post('/api/reflections', async (req, res) => {
         { 
           user_id, 
           book_title, 
-          reflection_text 
+          reflection_text: reflection_text || '',
+          audio_url: audio_url || null
         }
       ])
       .select();
@@ -184,7 +278,7 @@ app.post('/api/reflections', async (req, res) => {
       });
     }
     
-    console.log('Reflection saved successfully:', data[0].id);
+    console.log('Reflection saved successfully:', data[0].id, audio_url ? '(with audio)' : '');
     res.status(201).json(data[0]);
   } catch (err) {
     console.error('Server error saving reflection:', err);
@@ -330,12 +424,15 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`\nREADit2 Server is running on port ${PORT}`);
+  console.log(`\n🎤 READit2 Server is running on port ${PORT}`);
   console.log('===================================================');
   console.log('API Base URL: http://localhost:5000/api');
+  console.log('Audio files: http://localhost:5000/uploads/audio/');
+  console.log('===================================================');
   console.log('Available endpoints:');
   console.log('  - POST /api/register');
   console.log('  - POST /api/login');
+  console.log('  - POST /api/upload-audio 🎤');
   console.log('  - GET /api/reflections');
   console.log('  - POST /api/reflections');
   console.log('  - GET /api/recommendations');
@@ -343,5 +440,7 @@ app.listen(PORT, () => {
   console.log('  - GET /api/badges/:userId');
   console.log('  - GET /api/leaderboard');
   console.log('===================================================');
-  console.log('Connect your frontend to: http://localhost:3000');
+  console.log('✅ CORS enabled for audio files');
+  console.log('✅ Static files served from:', uploadsDir);
+  console.log('===================================================');
 });
