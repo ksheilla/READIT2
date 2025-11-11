@@ -7,7 +7,6 @@ import {
   Grid, 
   Avatar,
   Tooltip,
-  Badge as MuiBadge,
   Button,
   Chip
 } from '@mui/material';
@@ -17,39 +16,9 @@ import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import StarIcon from '@mui/icons-material/Star';
 import { useNavigate } from 'react-router-dom';
+import { checkForNewBadges, shouldCelebrateBadge, formatBadgeForDisplay } from '../services/badgeChecker';
 
-// Mock data for demonstration (will be replaced with actual data)
-const MOCK_BADGES = [
-  {
-    id: 1,
-    badge_name: 'First Reflection',
-    description: 'Posted your first reflection',
-    earned_at: new Date().toISOString(),
-    icon: <StarIcon sx={{ fontSize: 30 }} />,
-    color: '#FF6B6B',
-    animation: { scale: [1, 1.2, 1], rotate: [0, 10, 0] }
-  },
-  {
-    id: 2,
-    badge_name: '5-Day Streak',
-    description: 'Read for 5 consecutive days',
-    earned_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-    icon: <LocalFireDepartmentIcon sx={{ fontSize: 30 }} />,
-    color: '#4ECDC4',
-    animation: { scale: [1, 1.2, 1], rotate: [0, -10, 0] }
-  },
-  {
-    id: 3,
-    badge_name: 'Bookworm',
-    description: 'Posted 10 reflections',
-    earned_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-    icon: <AutoFixHighIcon sx={{ fontSize: 30 }} />,
-    color: '#FFD700',
-    animation: { scale: [1, 1.2, 1], rotate: [0, 5, 0] }
-  }
-];
-
-function BadgeDisplay({ userId }) {
+function BadgeDisplay({ userId, reflections = [], recommendations = [], user = {} }) {
   const [badges, setBadges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newBadge, setNewBadge] = useState(null);
@@ -57,49 +26,58 @@ function BadgeDisplay({ userId }) {
   const navigate = useNavigate();
   
   useEffect(() => {
-    const fetchBadges = async () => {
+    const fetchAndCheckBadges = async () => {
       try {
         setLoading(true);
         
-        // In a real app, this would fetch from your backend API
-        // For now, we'll use mock data
-        setTimeout(() => {
-          setBadges(MOCK_BADGES);
-          setLoading(false);
+        // Calculate user stats
+        const userStats = {
+          reflectionCount: reflections.filter(r => r.user_id === userId).length,
+          recommendationCount: recommendations.filter(r => r.user_id === userId).length,
+          currentStreak: user.current_streak || 0,
+          existingBadges: badges.map(b => b.id) // Already earned badges
+        };
+        
+        // Check for newly earned badges
+        const newlyEarned = checkForNewBadges(userStats);
+        
+        // Show celebration for new badges (only once per badge)
+        if (newlyEarned.length > 0) {
+          const badgeToShow = newlyEarned[0]; // Show one at a time
           
-          // Simulate earning a new badge after component loads
-          setTimeout(() => {
-            const newBadge = {
-              id: Date.now(),
-              badge_name: 'New Badge!',
-              description: 'You earned a new badge',
-              earned_at: new Date().toISOString(),
-              icon: <StarIcon sx={{ fontSize: 30 }} />,
-              color: '#667eea',
-              animation: { scale: [1, 1.5, 1], rotate: [0, 15, 0] }
-            };
-            setNewBadge(newBadge);
+          // Check if we should celebrate this badge
+          if (shouldCelebrateBadge(badgeToShow.id, userId)) {
+            setNewBadge(formatBadgeForDisplay(badgeToShow));
             
-            // Clear the new badge after 5 seconds
+            // Add to badges list
+            setBadges(prev => [...prev, badgeToShow]);
+            
+            // Clear celebration after 5 seconds
             setTimeout(() => {
               setNewBadge(null);
             }, 5000);
-          }, 1000);
-        }, 500);
+          } else {
+            // Badge already celebrated, just add to list
+            setBadges(prev => [...prev, badgeToShow]);
+          }
+        }
+        
+        setLoading(false);
       } catch (err) {
-        console.error('Error fetching badges:', err);
+        console.error('Error checking badges:', err);
+        setLoading(false);
       }
     };
     
-    fetchBadges();
-  }, [userId]);
+    fetchAndCheckBadges();
+  }, [userId, reflections.length, recommendations.length, user.current_streak]);
 
   const handleBadgeClick = (badge) => {
     // Show more details about the badge
     navigate('/badges', { state: { badge } });
   };
 
-  // Animation variants for the badge display
+  // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -174,7 +152,7 @@ function BadgeDisplay({ userId }) {
           <EmojiEventsIcon sx={{ fontSize: 40 }} />
         </motion.div>
         <Typography color="textSecondary" sx={{ mt: 1 }}>
-          Loading badges...
+          Checking achievements...
         </Typography>
       </Box>
     );
@@ -196,8 +174,11 @@ function BadgeDisplay({ userId }) {
         >
           <EmojiEventsIcon sx={{ fontSize: 60, color: 'rgba(0,0,0,0.1)' }} />
         </motion.div>
-        <Typography color="textSecondary" sx={{ mt: 2 }}>
+        <Typography color="textSecondary" sx={{ mt: 2, mb: 1 }}>
           No badges yet - keep reading to earn them!
+        </Typography>
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+          🎯 Post 3 reflections and recommend 1 book to earn your first badge!
         </Typography>
         <Button 
           variant="outlined" 
@@ -219,7 +200,7 @@ function BadgeDisplay({ userId }) {
       mt: 3,
       position: 'relative'
     }}>
-      {/* New badge animation */}
+      {/* New badge celebration animation */}
       <AnimatePresence>
         {newBadge && (
           <motion.div
@@ -251,14 +232,17 @@ function BadgeDisplay({ userId }) {
               minHeight: 250
             }}>
               <motion.div
-                animate={newBadge.animation}
+                animate={{
+                  scale: [1, 1.3, 1],
+                  rotate: [0, 360, 0]
+                }}
                 transition={{ 
                   duration: 1.5,
                   repeat: Infinity,
                   ease: "easeInOut"
                 }}
               >
-                {newBadge.icon}
+                <Typography sx={{ fontSize: 80 }}>{newBadge.icon}</Typography>
               </motion.div>
               <Typography variant="h5" sx={{ mt: 2, fontWeight: 'bold', textAlign: 'center' }}>
                 {newBadge.badge_name}!
@@ -271,7 +255,7 @@ function BadgeDisplay({ userId }) {
                 sx={{ mt: 3, bgcolor: 'white', color: '#667eea', fontWeight: 'bold' }}
                 onClick={() => setNewBadge(null)}
               >
-                Awesome!
+                Awesome! 🎉
               </Button>
             </Box>
           </motion.div>
@@ -287,7 +271,7 @@ function BadgeDisplay({ userId }) {
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <EmojiEventsIcon sx={{ fontSize: 30, color: '#667eea', mr: 1 }} />
           <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#667eea' }}>
-            Your Badges
+            Your Badges ({badges.length})
           </Typography>
           {hasMore && !showAll && (
             <Button 
@@ -332,7 +316,10 @@ function BadgeDisplay({ userId }) {
                   onClick={() => handleBadgeClick(badge)}
                 >
                   <motion.div
-                    animate={badge.animation}
+                    animate={{
+                      scale: [1, 1.1, 1],
+                      rotate: [0, 5, -5, 0]
+                    }}
                     transition={{ 
                       duration: 2,
                       repeat: Infinity,
@@ -349,7 +336,8 @@ function BadgeDisplay({ userId }) {
                       alignItems: 'center',
                       justifyContent: 'center',
                       mb: 2,
-                      margin: '0 auto'
+                      margin: '0 auto',
+                      fontSize: '3rem'
                     }}>
                       {badge.icon}
                     </Box>
@@ -392,16 +380,6 @@ function BadgeDisplay({ userId }) {
                         fontWeight: 'bold'
                       }}
                     />
-                    <Chip 
-                      icon={<LocalFireDepartmentIcon />}
-                      label="Level 1"
-                      size="small"
-                      sx={{ 
-                        bgcolor: `${badge.color}22`,
-                        color: badge.color,
-                        fontWeight: 'bold'
-                      }}
-                    />
                   </Box>
                 </Card>
               </motion.div>
@@ -410,12 +388,12 @@ function BadgeDisplay({ userId }) {
         </Grid>
       </motion.div>
 
-      {/* View More Button */}
-      {hasMore && showAll && (
+      {/* View More/Less Button */}
+      {hasMore && (
         <Box sx={{ textAlign: 'center', mt: 3 }}>
           <Button 
             variant="outlined" 
-            onClick={() => setShowAll(false)}
+            onClick={() => setShowAll(!showAll)}
             sx={{ 
               borderColor: '#667eea',
               color: '#667eea',
@@ -425,7 +403,7 @@ function BadgeDisplay({ userId }) {
               }
             }}
           >
-            Show Less
+            {showAll ? 'Show Less' : `Show All (${badges.length})`}
           </Button>
         </Box>
       )}

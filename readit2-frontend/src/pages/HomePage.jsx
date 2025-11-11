@@ -25,6 +25,7 @@ import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import Mic from '@mui/icons-material/Mic';
 import BadgeDisplay from '../components/BadgeDisplay';
 import AudioPlayer from '../components/AudioPlayer';
+import TextToSpeech from '../components/TextToSpeech';
 
 // Popular books data
 const POPULAR_BOOKS = [
@@ -72,6 +73,7 @@ const floatingAnimation = {
 
 function HomePage() {
   const [reflections, setReflections] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [likedReflections, setLikedReflections] = useState(new Set());
@@ -550,13 +552,23 @@ function HomePage() {
                           </Box>
                           
                           {reflection.reflection_text && (
-                            <Typography variant="body1" sx={{ mb: 2, lineHeight: 1.6 }}>
-                              {reflection.reflection_text}
-                            </Typography>
+                            <>
+                              <Typography variant="body1" sx={{ mb: 2, lineHeight: 1.6 }}>
+                                {reflection.reflection_text}
+                              </Typography>
+                              
+                              {/* TEXT-TO-SPEECH: Read the reflection aloud */}
+                              <Box sx={{ mb: 2 }}>
+                                <TextToSpeech text={reflection.reflection_text} compact={true} />
+                              </Box>
+                            </>
                           )}
 
                           {reflection.audio_url && (
                             <Box sx={{ mt: 2, mb: 2 }}>
+                              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Mic /> Audio Reflection:
+                              </Typography>
                               <AudioPlayer audioUrl={reflection.audio_url} compact={true} />
                             </Box>
                           )}
