@@ -6,8 +6,6 @@ const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 const { v4: uuidv4 } = require('uuid');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 
 dotenv.config();
 
@@ -19,9 +17,28 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// IMPORTANT: Configure CORS to allow audio file access
+// IMPORTANT: Configure CORS - Update with your Vercel domain after deployment
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  process.env.FRONTEND_URL, // Add your Vercel URL here
+  /\.vercel\.app$/ // Allow all Vercel preview deployments
+];
+
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.some(allowed => {
+      if (allowed instanceof RegExp) return allowed.test(origin);
+      return allowed === origin;
+    })) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Range'],
@@ -30,41 +47,15 @@ app.use(cors({
 
 app.use(express.json());
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, 'uploads', 'audio');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+// Initialize Supabase client with service role key for storage
+const supabase = createClient(
+  process.env.SUPABASE_URL, 
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY
+);
 
-// IMPORTANT: Serve static audio files with proper headers
-app.use('/uploads/audio', (req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Range');
-  res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
-  res.setHeader('Accept-Ranges', 'bytes');
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  next();
-}, express.static(uploadsDir, {
-  setHeaders: (res, path) => {
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
-}));
-
-// Configure multer for audio file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  }
-});
-
+// Configure multer for memory storage (we'll upload to Supabase)
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB max
   },
@@ -78,10 +69,8 @@ const upload = multer({
   }
 });
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-
 app.get('/', (req, res) => {
-  res.send('READit2 API is running successfully with audio support! 🎤');
+  res.send('READit2 API is running successfully with Supabase Storage! 🎤');
 });
 
 // User registration
@@ -188,7 +177,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// Upload audio file
+// Upload audio file to Supabase Storage
 app.post('/api/upload-audio', upload.single('audio'), async (req, res) => {
   try {
     if (!req.file) {
@@ -197,13 +186,37 @@ app.post('/api/upload-audio', upload.single('audio'), async (req, res) => {
       });
     }
     
-    const audioUrl = `http://localhost:${process.env.PORT || 5000}/uploads/audio/${req.file.filename}`;
+    // Generate unique filename
+    const fileExt = req.file.originalname.split('.').pop();
+    const fileName = `${uuidv4()}.${fileExt}`;
+    const filePath = `reflections/${fileName}`;
     
-    console.log('Audio file uploaded:', req.file.filename);
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('audio-reflections')
+      .upload(filePath, req.file.buffer, {
+        contentType: req.file.mimetype,
+        cacheControl: '3600',
+        upsert: false
+      });
+    
+    if (error) {
+      console.error('Supabase storage error:', error);
+      return res.status(500).json({ 
+        error: 'Failed to upload audio. Please try again.' 
+      });
+    }
+    
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('audio-reflections')
+      .getPublicUrl(filePath);
+    
+    console.log('Audio file uploaded:', fileName);
     res.json({ 
       message: 'Audio uploaded successfully',
-      audioUrl: audioUrl,
-      filename: req.file.filename
+      audioUrl: urlData.publicUrl,
+      filename: fileName
     });
     
   } catch (err) {
@@ -426,8 +439,8 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`\n🎤 READit2 Server is running on port ${PORT}`);
   console.log('===================================================');
-  console.log('API Base URL: http://localhost:5000/api');
-  console.log('Audio files: http://localhost:5000/uploads/audio/');
+  console.log('API Base URL: ' + (process.env.RAILWAY_STATIC_URL || `http://localhost:${PORT}`) + '/api');
+  console.log('Storage: Supabase Storage (audio-reflections bucket)');
   console.log('===================================================');
   console.log('Available endpoints:');
   console.log('  - POST /api/register');
@@ -439,8 +452,5 @@ app.listen(PORT, () => {
   console.log('  - POST /api/recommendations');
   console.log('  - GET /api/badges/:userId');
   console.log('  - GET /api/leaderboard');
-  console.log('===================================================');
-  console.log('✅ CORS enabled for audio files');
-  console.log('✅ Static files served from:', uploadsDir);
   console.log('===================================================');
 });
