@@ -22,10 +22,7 @@ import {
   Chip,
   Card,
   CardContent,
-  Grid,
-  Tabs,
-  Tab,
-  Badge
+  Grid
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -33,7 +30,6 @@ import {
   EmojiEvents, 
   ArrowBack,
   LocalFireDepartment,
-  MenuBook,
   Star,
   TrendingUp,
   School
@@ -43,7 +39,6 @@ function LeaderboardPage() {
   const [leaders, setLeaders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('readit2_user'));

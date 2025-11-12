@@ -29,7 +29,6 @@ import {
   Preview,
   AutoStories,
   EmojiEmotions,
-  Star,
   Favorite,
   Mic
 } from '@mui/icons-material';
@@ -41,7 +40,6 @@ function ReflectionPage() {
   const [reflectionText, setReflectionText] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [selectedMood, setSelectedMood] = useState('');
   const [activeStep, setActiveStep] = useState(0);
   const [audioBlob, setAudioBlob] = useState(null);

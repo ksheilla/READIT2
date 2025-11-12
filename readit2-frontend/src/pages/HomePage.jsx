@@ -73,7 +73,6 @@ const floatingAnimation = {
 
 function HomePage() {
   const [reflections, setReflections] = useState([]);
-  const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [likedReflections, setLikedReflections] = useState(new Set());

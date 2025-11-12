@@ -22,8 +22,6 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import AutoStoriesIcon from '@mui/icons-material/AutoStories';
-import FavoriteIcon from '@mui/icons-material/Favorite';
 import ShareIcon from '@mui/icons-material/Share';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import HomeIcon from '@mui/icons-material/Home';

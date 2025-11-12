@@ -14,7 +14,6 @@ import {
   VolumeUp,
   Stop,
   Settings,
-  Speed,
   VoiceOverOff
 } from '@mui/icons-material';
 
@@ -56,8 +55,13 @@ const TextToSpeech = ({ text, compact = false }) => {
     }
 
     return () => {
-      stopSpeaking();
+      window.speechSynthesis.cancel();
+      setIsPlaying(false);
+      setIsPaused(false);
+      setProgress(0);
+      stopProgressTracking();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startSpeaking = () => {
