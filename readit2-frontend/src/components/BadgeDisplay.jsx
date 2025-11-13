@@ -1,40 +1,47 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Typography, Card, Grid, Chip, Button } from '@mui/material';
+import React, { useState, useEffect, useRef } from 'react';
+import { Box, Typography, Card, Grid, Chip } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { checkForNewBadges, shouldCelebrateBadge, formatBadgeForDisplay } from '../services/badgeChecker';
-import { useNavigate } from 'react-router-dom';
 
 function BadgeDisplay({ userId, reflections = [], recommendations = [], user = {} }) {
   const [badges, setBadges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newBadge, setNewBadge] = useState(null);
-  const navigate = useNavigate();
+  const timeoutRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return; // SSR-safe
 
-    let timeoutId;
     const fetchAndCheckBadges = async () => {
       try {
         setLoading(true);
-        const userStats = {
-          reflectionCount: reflections.filter(r => r.user_id === userId).length,
-          recommendationCount: recommendations.filter(r => r.user_id === userId).length,
-          currentStreak: user.current_streak || 0,
-          existingBadges: badges.map(b => b.id)
-        };
-        const newlyEarned = checkForNewBadges(userStats);
-        if (newlyEarned.length > 0) {
-          const badgeToShow = newlyEarned[0];
-          if (shouldCelebrateBadge(badgeToShow.id, userId)) {
-            setNewBadge(formatBadgeForDisplay(badgeToShow));
-            setBadges(prev => [...prev, badgeToShow]);
-            timeoutId = setTimeout(() => setNewBadge(null), 5000);
-          } else {
-            setBadges(prev => [...prev, badgeToShow]);
+        const reflectionCount = reflections.filter(r => r.user_id === userId).length;
+        const recommendationCount = recommendations.filter(r => r.user_id === userId).length;
+        const currentStreak = user.current_streak || 0;
+        
+        setBadges(prevBadges => {
+          const userStats = {
+            reflectionCount,
+            recommendationCount,
+            currentStreak,
+            existingBadges: prevBadges.map(b => b.id)
+          };
+          const newlyEarned = checkForNewBadges(userStats);
+          if (newlyEarned.length > 0) {
+            const badgeToShow = newlyEarned[0];
+            if (shouldCelebrateBadge(badgeToShow.id, userId)) {
+              setNewBadge(formatBadgeForDisplay(badgeToShow));
+              if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+              }
+              timeoutRef.current = setTimeout(() => setNewBadge(null), 5000);
+              return [...prevBadges, badgeToShow];
+            } else {
+              return [...prevBadges, badgeToShow];
+            }
           }
-        }
+          return prevBadges;
+        });
         setLoading(false);
       } catch (err) {
         console.error(err);
@@ -43,8 +50,12 @@ function BadgeDisplay({ userId, reflections = [], recommendations = [], user = {
     };
 
     fetchAndCheckBadges();
-    return () => clearTimeout(timeoutId);
-  }, [userId, reflections.length, recommendations.length, user.current_streak]);
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [userId, reflections, recommendations, user.current_streak]);
 
   return (
     <Box>

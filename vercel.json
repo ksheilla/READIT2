@@ -1,0 +1,13 @@
+{
+  "buildCommand": "cd readit2-frontend && npm run build",
+  "outputDirectory": "readit2-frontend/build",
+  "installCommand": "cd readit2-frontend && npm install",
+  "framework": "create-react-app",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+

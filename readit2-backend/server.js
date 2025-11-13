@@ -436,10 +436,19 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+
+// Determine the base URL for logging
+let baseUrl = `http://localhost:${PORT}`;
+if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+  baseUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+} else if (process.env.RENDER_EXTERNAL_URL) {
+  baseUrl = process.env.RENDER_EXTERNAL_URL;
+}
+
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🎤 READit2 Server is running on port ${PORT}`);
   console.log('===================================================');
-  console.log('API Base URL: ' + (process.env.RAILWAY_STATIC_URL || `http://localhost:${PORT}`) + '/api');
+  console.log(`API Base URL: ${baseUrl}/api`);
   console.log('Storage: Supabase Storage (audio-reflections bucket)');
   console.log('===================================================');
   console.log('Available endpoints:');

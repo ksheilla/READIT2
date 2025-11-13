@@ -26,6 +26,7 @@ import Mic from '@mui/icons-material/Mic';
 import BadgeDisplay from '../components/BadgeDisplay';
 import AudioPlayer from '../components/AudioPlayer';
 import TextToSpeech from '../components/TextToSpeech';
+import { api } from '../services/api';
 
 // Popular books data
 const POPULAR_BOOKS = [
@@ -73,7 +74,6 @@ const floatingAnimation = {
 
 function HomePage() {
   const [reflections, setReflections] = useState([]);
-  const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [likedReflections, setLikedReflections] = useState(new Set());
@@ -114,13 +114,7 @@ function HomePage() {
       setError('');
       setLoading(true);
       
-      const response = await fetch('http://localhost:5000/api/reflections');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch reflections');
-      }
-      
-      const data = await response.json();
+      const data = await api.get('/reflections').then(res => res.data);
       setReflections(data);
     } catch (err) {
       console.error('Error fetching reflections:', err);

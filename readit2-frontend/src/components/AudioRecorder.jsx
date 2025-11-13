@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Box,
-  Button,
   Typography,
   IconButton,
   Card,
@@ -10,7 +9,7 @@ import {
   LinearProgress,
   Chip
 } from '@mui/material';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Mic,
   Stop,
@@ -24,7 +23,6 @@ const AudioRecorder = ({ onAudioRecorded, existingAudioUrl = null }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [audioUrl, setAudioUrl] = useState(existingAudioUrl);
-  const [audioBlob, setAudioBlob] = useState(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState('');
@@ -100,7 +98,6 @@ const AudioRecorder = ({ onAudioRecorded, existingAudioUrl = null }) => {
         });
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
-        setAudioBlob(audioBlob);
         
         // Notify parent component
         if (onAudioRecorded) {
@@ -185,7 +182,6 @@ const AudioRecorder = ({ onAudioRecorded, existingAudioUrl = null }) => {
 
   const deleteRecording = () => {
     setAudioUrl(null);
-    setAudioBlob(null);
     setRecordingTime(0);
     setIsPlaying(false);
     if (onAudioRecorded) {

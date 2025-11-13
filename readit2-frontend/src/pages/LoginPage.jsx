@@ -24,8 +24,6 @@ function LoginPage() {
   const [bookEmoji, setBookEmoji] = useState('📚');
   const navigate = useNavigate();
 
-  const bookEmojis = ['📚', '📖', '📕', '📗', '📘', '📙'];
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
