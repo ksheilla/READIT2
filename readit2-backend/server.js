@@ -28,21 +28,19 @@ app.use(cors({
       return callback(null, true);
     }
     
+    // Log all incoming origins for debugging
+    console.log('🌐 Request from origin:', origin);
+    
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:3001',
-      'https://readit-2.vercel.app',
-      'https://readit-2-vercel.app',
+      'https://readit-2.vercel.app',  // Your production domain
       process.env.FRONTEND_URL
     ];
     
     // Check exact match
     if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    
-    // Check if it's a Vercel deployment URL
-    if (origin.includes('vercel.app') && origin.includes('readit-2')) {
+      console.log('✅ Allowed origin:', origin);
       return callback(null, true);
     }
     
