@@ -36,16 +36,22 @@ The server will run on `http://localhost:5000`
 
 ## Deployment
 
-### Railway
+### Railway (Recommended)
+
+**IMPORTANT: You MUST set the Root Directory to `readit2-backend` in Railway dashboard!**
 
 1. Create a new project on [Railway](https://railway.app)
 2. Connect your GitHub repository
-3. Select the `readit2-backend` directory
-4. Add environment variables in Railway dashboard:
-   - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `FRONTEND_URL` (your Vercel frontend URL)
-5. Railway will automatically deploy
+3. After the service is created, go to **Settings** tab
+4. Set **Root Directory** to: `readit2-backend`
+5. Go to **Variables** tab and add:
+   - `SUPABASE_URL` = your_supabase_project_url
+   - `SUPABASE_SERVICE_ROLE_KEY` = your_supabase_service_role_key
+   - `FRONTEND_URL` = https://your-frontend.vercel.app
+6. Railway will automatically detect Node.js and deploy
+7. The start command is: `node server.js` (configured in `nixpacks.toml` and `package.json`)
+
+**See `RAILWAY_SETUP.md` in the repository root for detailed instructions.**
 
 ### Render
 
