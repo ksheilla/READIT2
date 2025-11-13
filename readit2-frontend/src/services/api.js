@@ -66,6 +66,12 @@ export const postReflection = async (reflectionData) => {
 
 // Upload audio reflection
 export const uploadAudio = async (audioData) => {
-  const response = await uploadApi.post('/audio/reflections', audioData);
+  const response = await uploadApi.post('/upload-audio', audioData);
+  return response.data;
+};
+
+// Get leaderboard
+export const getLeaderboard = async () => {
+  const response = await api.get('/leaderboard');
   return response.data;
 };

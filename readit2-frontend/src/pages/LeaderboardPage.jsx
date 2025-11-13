@@ -34,6 +34,7 @@ import {
   TrendingUp,
   School
 } from '@mui/icons-material';
+import { getLeaderboard } from '../services/api';
 
 function LeaderboardPage() {
   const [leaders, setLeaders] = useState([]);
@@ -49,13 +50,7 @@ function LeaderboardPage() {
         setError('');
         setLoading(true);
         
-        const response = await fetch('http://localhost:5000/api/leaderboard');
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch leaderboard');
-        }
-        
-        const data = await response.json();
+        const data = await getLeaderboard();
         setLeaders(data);
 
         // Show confetti if user is in top 3
