@@ -17,12 +17,13 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// IMPORTANT: Configure CORS - Update with your Vercel domain after deployment
+// IMPORTANT: Configure CORS - Updated with your Vercel domain
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
-  process.env.FRONTEND_URL, // Add your Vercel URL here
-  /\.vercel\.app$/ // Allow all Vercel preview deployments
+  'https://readit-2-njhz8dgzw-sheillas-projects-1b9c87b7.vercel.app',
+  /readit-2-.*\.vercel\.app$/,  // Allow all Vercel preview deployments
+  process.env.FRONTEND_URL
 ];
 
 app.use(cors({
@@ -36,6 +37,7 @@ app.use(cors({
     })) {
       callback(null, true);
     } else {
+      console.log('CORS blocked origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
