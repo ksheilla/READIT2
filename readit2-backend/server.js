@@ -17,34 +17,44 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// IMPORTANT: Configure CORS - Updated with your Vercel domain
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'https://readit-2-njhz8dgzw-sheillas-projects-1b9c87b7.vercel.app',
-  /readit-2-.*\.vercel\.app$/,  // Allow all Vercel preview deployments
-  process.env.FRONTEND_URL
-];
+// Handle preflight requests
+app.options('*', cors());
 
+// IMPORTANT: Configure CORS
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, etc)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.some(allowed => {
-      if (allowed instanceof RegExp) return allowed.test(origin);
-      return allowed === origin;
-    })) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+    // Allow requests with no origin (mobile apps, curl, Postman, etc)
+    if (!origin) {
+      return callback(null, true);
     }
+    
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://readit-2.vercel.app',
+      'https://readit-2-vercel.app',
+      process.env.FRONTEND_URL
+    ];
+    
+    // Check exact match
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Check if it's a Vercel deployment URL
+    if (origin.includes('vercel.app') && origin.includes('readit-2')) {
+      return callback(null, true);
+    }
+    
+    console.log('❌ CORS blocked origin:', origin);
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Range'],
-  exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length']
+  exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
 app.use(express.json());
