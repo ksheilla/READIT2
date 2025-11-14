@@ -31,9 +31,9 @@ app.use(cors({
       'http://localhost:3001',
       'https://readit-2.vercel.app',
       'https://readit2-2.vercel.app',
-      'https://readit2-git-main-sheillas-projects-1b9c87b7.vercel.app', // ✅ Your current preview URL
-      process.env.FRONTEND_URL, // Optional: set in Railway for flexibility
-    ].filter(Boolean); // Remove null/undefined
+      'https://readit2-git-main-sheillas-projects-1b9c87b7.vercel.app',
+      process.env.FRONTEND_URL,
+    ].filter(Boolean);
 
     if (allowedOrigins.includes(origin)) {
       console.log('✅ CORS allowed for:', origin);
@@ -52,10 +52,10 @@ app.use(cors({
 
 app.use(express.json());
 
-// Initialize Supabase client
+// 🔒 Initialize Supabase client — MUST use service role key in backend
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY // ⚠️ No fallback to SUPABASE_KEY
 );
 
 // Multer for in-memory audio uploads
@@ -328,8 +328,8 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🎤 READit2 Backend is running on port ${PORT}`);
   console.log('============================================');
-  console.log('✅ CORS allows your Vercel frontends');
-  console.log('✅ All routes use /api/ prefix');
-  console.log('✅ Ready for production!');
+  console.log('✅ Using SUPABASE_SERVICE_ROLE_KEY (no fallback)');
+  console.log('✅ CORS configured for Vercel frontends');
+  console.log('✅ Ready for secure production use!');
   console.log('============================================');
 });
