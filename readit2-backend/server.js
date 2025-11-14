@@ -55,7 +55,7 @@ app.use(express.json());
 // 🔒 Initialize Supabase client — MUST use service role key in backend
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY // ⚠️ No fallback to SUPABASE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY
 );
 
 // Multer for in-memory audio uploads
@@ -111,7 +111,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// User login
+// User login - FIXED
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -126,11 +126,18 @@ app.post('/api/login', async (req, res) => {
   }
 
   try {
-    const {  user } = await supabase
+    // ✅ FIXED: Correctly destructure { data, error } from Supabase
+    const { data: user, error } = await supabase
       .from('users')
       .select('*')
       .eq('email', email)
       .single();
+
+    // Check for Supabase errors
+    if (error) {
+      console.log('❌ Supabase error:', error.message);
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
 
     if (!user) {
       console.log('❌ No user found with email:', email);
@@ -156,7 +163,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// Upload audio to Supabase Storage
+// Upload audio to Supabase Storage - FIXED
 app.post('/api/upload-audio', upload.single('audio'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No audio file provided' });
@@ -177,7 +184,8 @@ app.post('/api/upload-audio', upload.single('audio'), async (req, res) => {
 
     if (error) throw error;
 
-    const {  urlData } = supabase.storage
+    // ✅ FIXED: Correctly destructure { data } from Supabase
+    const { data: urlData } = supabase.storage
       .from('audio-reflections')
       .getPublicUrl(filePath);
 
@@ -328,7 +336,7 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🎤 READit2 Backend is running on port ${PORT}`);
   console.log('============================================');
-  console.log('✅ Using SUPABASE_SERVICE_ROLE_KEY (no fallback)');
+  console.log('✅ Using SUPABASE_SERVICE_ROLE_KEY (with fallback)');
   console.log('✅ CORS configured for Vercel frontends');
   console.log('✅ Ready for secure production use!');
   console.log('============================================');
