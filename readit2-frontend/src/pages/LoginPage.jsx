@@ -29,19 +29,29 @@ function LoginPage() {
     setError('');
     setLoading(true);
     
+    console.log('🔍 Frontend: Attempting login with:', { email, password: '***' });
+    
     try {
       const response = await login({ email, password });
+      console.log('✅ Frontend: Login response:', response);
+      
+      // Store user data
       localStorage.setItem('readit2_user', JSON.stringify(response.user));
+      console.log('✅ Frontend: User data stored in localStorage');
       
       // Celebration emoji change
       setBookEmoji('🎉');
-      setTimeout(() => {
-        navigate('/home');
-      }, 500);
+      
+      // Navigate to home immediately
+      console.log('✅ Frontend: Navigating to /home');
+      navigate('/home', { replace: true });
       
     } catch (err) {
-      console.error('Login failed with error:', err);
-      setError('Login failed. Please check your credentials.');
+      console.error('❌ Frontend: Login failed with error:', err);
+      console.error('❌ Frontend: Error response:', err.response?.data);
+      
+      const errorMessage = err.response?.data?.error || 'Login failed. Please check your credentials.';
+      setError(errorMessage);
       setBookEmoji('😢');
       setTimeout(() => setBookEmoji('📚'), 2000);
     } finally {
