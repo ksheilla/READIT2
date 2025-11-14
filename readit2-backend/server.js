@@ -111,10 +111,17 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// Login
+// User login
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
+
+  // 🔍 DEBUG: Log raw incoming data
+  console.log('🔍 Login attempt received:');
+  console.log('  Email:', JSON.stringify(email));
+  console.log('  Password:', JSON.stringify(password));
+
   if (!email || !password) {
+    console.log('❌ Missing email or password');
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
@@ -125,17 +132,27 @@ app.post('/api/login', async (req, res) => {
       .eq('email', email)
       .single();
 
-    if (!user) return res.status(401).json({ error: 'Invalid email or password' });
+    if (!user) {
+      console.log('❌ No user found with email:', email);
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
 
+    console.log('✅ User found. Comparing password...');
     const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) return res.status(401).json({ error: 'Invalid email or password' });
+    console.log('🔑 bcrypt.compare result:', isMatch);
+
+    if (!isMatch) {
+      console.log('❌ Password mismatch for user:', email);
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
 
     const { password_hash, ...userData } = user;
-    console.log('✅ User logged in:', userData.email);
+    console.log('🎉 Login successful for:', userData.email);
     res.json({ message: 'Login successful', user: userData });
+
   } catch (err) {
-    console.error('❌ Login error:', err);
-    res.status(500).json({ error: 'Server error during login.' });
+    console.error('💥 Server error during login:', err);
+    res.status(500).json({ error: 'Server error. Please try again later.' });
   }
 });
 
