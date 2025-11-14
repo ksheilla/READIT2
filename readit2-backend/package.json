@@ -1,10 +1,11 @@
 {
   "name": "readit2-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Backend API for READit2 — a platform for student reading reflections and book recommendations.",
   "main": "server.js",
+  "type": "commonjs",
   "engines": {
-    "node": "20.x",
+    "node": ">=20.0.0",
     "npm": ">=9.0.0"
   },
   "scripts": {
@@ -12,8 +13,8 @@
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["readit2", "education", "reading", "supabase", "express"],
+  "author": "Your Name or Team",
   "license": "ISC",
   "dependencies": {
     "@supabase/supabase-js": "^2.77.0",
