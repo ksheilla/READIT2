@@ -11,35 +11,37 @@ dotenv.config();
 
 const app = express();
 
-// Configure Helmet for security + allow audio
+// Configure Helmet for security + allow cross-origin media
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   crossOriginEmbedderPolicy: false,
 }));
 
-// ✅ Use global CORS middleware — handles OPTIONS automatically
+// ✅ CORS middleware — handles preflight OPTIONS automatically
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (e.g., mobile apps, curl)
+    // Allow requests with no origin (e.g., mobile apps, curl, tests)
     if (!origin) return callback(null, true);
 
-    console.log('🌐 Request from origin:', origin);
+    console.log('🌐 Incoming origin:', origin);
 
+    // ✅ Allowlist of trusted origins
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:3001',
       'https://readit-2.vercel.app',
-      'https://readit2-2.vercel.app', // ✅ Your actual frontend
-      process.env.FRONTEND_URL,
-    ].filter(Boolean); // Remove undefined/null
+      'https://readit2-2.vercel.app',
+      'https://readit2-git-main-sheillas-projects-1b9c87b7.vercel.app', // ✅ Your current preview URL
+      process.env.FRONTEND_URL, // Optional: set in Railway for flexibility
+    ].filter(Boolean); // Remove null/undefined
 
     if (allowedOrigins.includes(origin)) {
-      console.log('✅ Allowed origin:', origin);
+      console.log('✅ CORS allowed for:', origin);
       return callback(null, true);
     }
 
-    console.log('❌ Blocked by CORS:', origin);
-    callback(new Error('Not allowed by CORS'));
+    console.warn('❌ CORS blocked origin:', origin);
+    callback(new Error('Not allowed by CORS policy'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -50,19 +52,23 @@ app.use(cors({
 
 app.use(express.json());
 
-// Supabase client
+// Initialize Supabase client
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY
 );
 
-// Multer for audio uploads
+// Multer for in-memory audio uploads
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/wav', 'audio/ogg'];
-    cb(null, allowedTypes.includes(file.mimetype));
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only audio files are allowed.'));
+    }
   },
 });
 
@@ -75,11 +81,10 @@ app.get('/', (req, res) => {
 app.post('/api/register', async (req, res) => {
   const { email, password, name, school } = req.body;
   if (!email || !password || !name || !school) {
-    return res.status(400).json({ error: 'All fields are required: email, password, name, and school' });
+    return res.status(400).json({ error: 'All fields are required: email, password, name, school' });
   }
 
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
     const { data: existingUser } = await supabase
       .from('users')
       .select('id')
@@ -90,6 +95,7 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ error: 'Email already registered.' });
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
     const { data, error } = await supabase
       .from('users')
       .insert([{ email, password_hash: hashedPassword, name, school }])
@@ -97,11 +103,11 @@ app.post('/api/register', async (req, res) => {
 
     if (error) throw error;
 
-    console.log('New user registered:', data[0].email);
+    console.log('✅ New user registered:', data[0].email);
     res.status(201).json({ message: 'Registration successful', user: data[0] });
   } catch (err) {
-    console.error('Registration error:', err);
-    res.status(500).json({ error: 'Server error. Please try again later.' });
+    console.error('❌ Registration error:', err);
+    res.status(500).json({ error: 'Server error during registration.' });
   }
 });
 
@@ -113,7 +119,7 @@ app.post('/api/login', async (req, res) => {
   }
 
   try {
-    const { data: user } = await supabase
+    const {  user } = await supabase
       .from('users')
       .select('*')
       .eq('email', email)
@@ -125,15 +131,15 @@ app.post('/api/login', async (req, res) => {
     if (!isMatch) return res.status(401).json({ error: 'Invalid email or password' });
 
     const { password_hash, ...userData } = user;
-    console.log('User logged in:', userData.email);
+    console.log('✅ User logged in:', userData.email);
     res.json({ message: 'Login successful', user: userData });
   } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ error: 'Server error. Please try again later.' });
+    console.error('❌ Login error:', err);
+    res.status(500).json({ error: 'Server error during login.' });
   }
 });
 
-// Upload audio
+// Upload audio to Supabase Storage
 app.post('/api/upload-audio', upload.single('audio'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No audio file provided' });
@@ -144,7 +150,7 @@ app.post('/api/upload-audio', upload.single('audio'), async (req, res) => {
     const fileName = `${uuidv4()}.${fileExt}`;
     const filePath = `reflections/${fileName}`;
 
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('audio-reflections')
       .upload(filePath, req.file.buffer, {
         contentType: req.file.mimetype,
@@ -154,23 +160,23 @@ app.post('/api/upload-audio', upload.single('audio'), async (req, res) => {
 
     if (error) throw error;
 
-    const { data: urlData } = supabase.storage
+    const {  urlData } = supabase.storage
       .from('audio-reflections')
       .getPublicUrl(filePath);
 
-    console.log('Audio uploaded:', fileName);
+    console.log('✅ Audio uploaded:', fileName);
     res.json({
       message: 'Audio uploaded successfully',
       audioUrl: urlData.publicUrl,
       filename: fileName,
     });
   } catch (err) {
-    console.error('Upload error:', err);
+    console.error('❌ Audio upload error:', err);
     res.status(500).json({ error: 'Failed to upload audio.' });
   }
 });
 
-// Get reflections
+// Get all reflections
 app.get('/api/reflections', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -181,12 +187,12 @@ app.get('/api/reflections', async (req, res) => {
     if (error) throw error;
     res.json(data || []);
   } catch (err) {
-    console.error('Fetch reflections error:', err);
+    console.error('❌ Fetch reflections error:', err);
     res.status(500).json({ error: 'Failed to fetch reflections.' });
   }
 });
 
-// Create reflection
+// Create a reflection
 app.post('/api/reflections', async (req, res) => {
   const { user_id, book_title, reflection_text, audio_url } = req.body;
   if (!user_id || !book_title) {
@@ -199,19 +205,24 @@ app.post('/api/reflections', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('reflections')
-      .insert([{ user_id, book_title, reflection_text: reflection_text || '', audio_url: audio_url || null }])
+      .insert([{
+        user_id,
+        book_title,
+        reflection_text: reflection_text || '',
+        audio_url: audio_url || null,
+      }])
       .select();
 
     if (error) throw error;
-    console.log('Reflection saved:', data[0].id);
+    console.log('✅ Reflection saved:', data[0].id);
     res.status(201).json(data[0]);
   } catch (err) {
-    console.error('Save reflection error:', err);
+    console.error('❌ Save reflection error:', err);
     res.status(500).json({ error: 'Failed to save reflection.' });
   }
 });
 
-// Get recommendations
+// Get all recommendations
 app.get('/api/recommendations', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -222,12 +233,12 @@ app.get('/api/recommendations', async (req, res) => {
     if (error) throw error;
     res.json(data || []);
   } catch (err) {
-    console.error('Fetch recommendations error:', err);
+    console.error('❌ Fetch recommendations error:', err);
     res.status(500).json({ error: 'Failed to fetch recommendations.' });
   }
 });
 
-// Create recommendation
+// Create a recommendation
 app.post('/api/recommendations', async (req, res) => {
   const { user_id, book_title, author, genre, recommendation_text } = req.body;
   if (!user_id || !book_title || !recommendation_text) {
@@ -241,9 +252,10 @@ app.post('/api/recommendations', async (req, res) => {
       .select();
 
     if (error) throw error;
+    console.log('✅ Recommendation saved:', data[0].id);
     res.status(201).json(data[0]);
   } catch (err) {
-    console.error('Save recommendation error:', err);
+    console.error('❌ Save recommendation error:', err);
     res.status(500).json({ error: 'Failed to save recommendation.' });
   }
 });
@@ -261,7 +273,7 @@ app.get('/api/badges/:userId', async (req, res) => {
     if (error) throw error;
     res.json(data || []);
   } catch (err) {
-    console.error('Fetch badges error:', err);
+    console.error('❌ Fetch badges error:', err);
     res.status(500).json({ error: 'Failed to fetch badges.' });
   }
 });
@@ -278,34 +290,29 @@ app.get('/api/leaderboard', async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (err) {
-    console.error('Leaderboard error:', err);
+    console.error('❌ Leaderboard error:', err);
     res.status(500).json({ error: 'Failed to fetch leaderboard.' });
   }
 });
 
-// 404 handler
+// Catch-all 404
 app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found.' });
+  res.status(404).json({ error: 'Route not found' });
 });
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Unexpected server error.' });
+  console.error('💥 Global error:', err);
+  res.status(500).json({ error: 'Unexpected server error' });
 });
 
+// Start server
 const PORT = process.env.PORT || 5000;
-
-// Log startup info
-let baseUrl = `http://localhost:${PORT}`;
-if (process.env.RAILWAY_PUBLIC_DOMAIN) {
-  baseUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
-}
-
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🎤 READit2 Server running on port ${PORT}`);
+  console.log(`\n🎤 READit2 Backend is running on port ${PORT}`);
   console.log('============================================');
-  console.log(`API Base URL: ${baseUrl}/api`);
-  console.log('Endpoints: /api/register, /api/login, etc.');
+  console.log('✅ CORS allows your Vercel frontends');
+  console.log('✅ All routes use /api/ prefix');
+  console.log('✅ Ready for production!');
   console.log('============================================');
 });
